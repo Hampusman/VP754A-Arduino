@@ -48,5 +48,5 @@ pip install -r requirements.txt
 
 ### 5) Run the project
 ```bat
-python src.main.py
+python src/main.py
 ```
