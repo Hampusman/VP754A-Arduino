@@ -6,46 +6,30 @@ from tqdm import tqdm
 
 class Arduino:
     def __init__(self):
-        self._arduino = serial.Serial(port='/dev/ttyACM0', baudrate=9600, timeout=.1)
-        self._Vref = 3.3
-        self._Voq = 2.5
-        self._current_value = 0.0
-        self._g = 0
-        self.stop = threading.Event()
+        self._arduino = serial.Serial(port='/dev/ttyACM0', baudrate=115200, timeout=1)
+        self._arduino.flush()
+        self._latest_values = ''
+        self._stop = threading.Event()
+        self._worker = threading.Thread(target=self._update_values, daemon=True)
+        self._worker.start()
 
-    def start(self) -> None:
-        print('Arduino started')
-        while not self.stop.is_set():
-            self._current_value = self._read()
-        print('Arduino stopped.')
-
-    def _read(self) -> float:
-        values = []
-        while True:
+    def _update_values(self) -> None:
+        while not self._stop.is_set():
             if self._arduino.in_waiting > 0:
                 data = self._arduino.read_until(b'\n')
                 try:
-                    data = data.decode('ascii')
-                    data = data.replace('<', '')
-                    data = data.replace('>', '')
-                    data = data.replace('\n', '')
-                    if not 0 <= int(data) <= 1023:
-                        continue
-                    data = (float(data) / 1023) * self._Vref
-                    values.append(data)
+                    data = data.decode('ascii').strip()
+                    self._latest_values = data
                 except Exception:
                     continue
-                if len(values) == 10:
-                    break
             time.sleep(0.001)
-        return values[-1]
 
     @property
-    def current_value(self) -> float:
-        return self._current_value
+    def value(self) -> str:
+        return self._latest_values
 
-    def _calculate_current(self, Vout: float) -> float:
-        pass
+    def stop(self):
+        self._stop.set()
 
     def debug(self) -> None:
         reads = []

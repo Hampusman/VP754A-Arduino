@@ -5,18 +5,15 @@ from arduino import Arduino
 
 
 class TcpServer:
-    def __init__(self, host: str = '', port: int = 8000, max_users: int = 5):
+    def __init__(self, host: str = '', port: int = 1337, max_users: int = 5):
         self._host = host
         self._port = port
         self._max_users = max_users
         self._arduino = Arduino()
-        self._arduino_thread = threading.Thread(target=self._arduino.start, daemon=True)
-        self._arduino_stop = self._arduino.stop
         self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._subscribers = []
         self._server_stop = threading.Event()
         self._subscriber_thread = threading.Thread(target=self._subscription, daemon=True)
-        self._arduino_thread.start()
         self._subscriber_thread.start()
 
     def run(self) -> None:
@@ -46,10 +43,10 @@ class TcpServer:
                 data = data.decode('UTF-8')
                 data = data.lower()
                 data = data.strip()
-                print(f'Data received: {data}')
+                print(f'Data received: {data}, from {address}')
                 match data:
                     case 'get':
-                        value = self._arduino.current_value
+                        value = self._arduino.value
                         print(f'Sent value: {value}')
                         client.sendall(f'{str(value)}\n'.encode('UTF-8'))
                     case 'subscribe':
@@ -74,10 +71,10 @@ class TcpServer:
         while not self._server_stop.is_set():
             if self._subscribers:
                 for client in self._subscribers:
-                    client.sendall(f'{str(self._arduino.current_value)}\n'.encode('UTF-8'))
+                    client.sendall(f'{str(self._arduino.value)}\n'.encode('UTF-8'))
                     time.sleep(0.1)
 
     def _stop_threads(self):
-        self._arduino_stop.set()
+        self._arduino.stop()
         time.sleep(1)
         self._server_stop.set()
